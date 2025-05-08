@@ -1,9 +1,12 @@
-import { TauriManager } from "@/app/(main)/_tauri/tauri-manager"
+import { SafeTauriManager } from "@/app/(main)/_tauri/safe-tauri-manager"
 import { ClientProviders } from "@/app/client-providers"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import React from "react"
+
+// Import the Tauri shim to prevent errors in browser environments
+import "./tauri-shim"
 
 export const dynamic = "force-static"
 
@@ -28,7 +31,7 @@ export default function RootLayout({ children }: {
         <body className={inter.className} suppressHydrationWarning>
         {/*{process.env.NODE_ENV === "development" && <script src="http://localhost:8097"></script>}*/}
         <ClientProviders>
-            {process.env.NEXT_PUBLIC_PLATFORM === "desktop" && <TauriManager />}
+            {process.env.NEXT_PUBLIC_PLATFORM === "desktop" && <SafeTauriManager />}
             {children}
         </ClientProviders>
         </body>

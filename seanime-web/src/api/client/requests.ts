@@ -26,11 +26,25 @@ export async function buildSeaQuery<T, D extends any = any>(
         data,
         params,
     }: SeaQuery<D>): Promise<T | undefined> {
+    // Get browser ID from cookie (Seanime-Client-Id is already being set in the websocket-provider)
+    let browserId = ""
+    if (typeof document !== "undefined") {
+        const match = document.cookie.match(new RegExp('(^| )Seanime-Client-Id=([^;]+)'))
+        if (match) browserId = match[2]
+    }
+    
+    // Create headers with browser ID
+    const headers: Record<string, string> = {}
+    if (browserId) {
+        headers["X-Browser-ID"] = browserId
+    }
+    
     const res = await axios<T>({
         url: getServerBaseUrl() + endpoint,
         method,
         data,
         params,
+        headers,
     })
     const response = _handleSeaResponse<T>(res.data)
     return response.data

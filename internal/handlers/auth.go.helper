@@ -1,0 +1,8 @@
+// randomHex generates a random hex string with the specified number of bytes
+func randomHex(n int) (string, error) {
+	bytes := make([]byte, n)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}

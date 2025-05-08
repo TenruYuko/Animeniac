@@ -21,18 +21,31 @@ import (
 //	@returns anilist.AnimeCollection
 //	@route /api/v1/anilist/collection [GET,POST]
 func (h *Handler) HandleGetAnimeCollection(c echo.Context) error {
-
 	bypassCache := c.Request().Method == "POST"
 
-	// Get the user's anilist collection
-	animeCollection, err := h.App.GetAnimeCollection(bypassCache)
+	// Get browser-specific AniList client
+	anilistClient := h.GetAnilistClientFromContext(c)
+
+	// Get browser ID for logging
+	browserId := ""
+	if ctxBrowserId := c.Get("BrowserId"); ctxBrowserId != nil {
+		if id, ok := ctxBrowserId.(string); ok && id != "" {
+			browserId = id
+		}
+	}
+
+	// Get the user's anilist collection using the browser-specific client
+	animeCollection, err := h.App.AnilistPlatform.GetAnimeCollectionWithClient(anilistClient, bypassCache)
 	if err != nil {
+		h.App.Logger.Error().Str("browserId", browserId).Err(err).Msg("Failed to get anime collection")
 		return h.RespondWithError(c, err)
 	}
 
+	h.App.Logger.Debug().Str("browserId", browserId).Int("collectionCount", len(animeCollection.MediaListCollection.Lists)).Msg("Retrieved anime collection for browser")
+
 	go func() {
 		if h.App.Settings != nil && h.App.Settings.GetLibrary().EnableManga {
-			_, _ = h.App.GetMangaCollection(bypassCache)
+			_, _ = h.App.AnilistPlatform.GetMangaCollectionWithClient(anilistClient, bypassCache)
 			if bypassCache {
 				h.App.WSEventManager.SendEvent(events.RefreshedAnilistMangaCollection, nil)
 			}
@@ -49,14 +62,27 @@ func (h *Handler) HandleGetAnimeCollection(c echo.Context) error {
 //	@returns anilist.AnimeCollection
 //	@route /api/v1/anilist/collection/raw [GET,POST]
 func (h *Handler) HandleGetRawAnimeCollection(c echo.Context) error {
-
 	bypassCache := c.Request().Method == "POST"
 
-	// Get the user's anilist collection
-	animeCollection, err := h.App.GetRawAnimeCollection(bypassCache)
+	// Get browser-specific AniList client
+	anilistClient := h.GetAnilistClientFromContext(c)
+
+	// Get browser ID for logging
+	browserId := ""
+	if ctxBrowserId := c.Get("BrowserId"); ctxBrowserId != nil {
+		if id, ok := ctxBrowserId.(string); ok && id != "" {
+			browserId = id
+		}
+	}
+
+	// Get the user's raw anilist collection using the browser-specific client
+	animeCollection, err := h.App.AnilistPlatform.GetRawAnimeCollectionWithClient(anilistClient, bypassCache)
 	if err != nil {
+		h.App.Logger.Error().Str("browserId", browserId).Err(err).Msg("Failed to get raw anime collection")
 		return h.RespondWithError(c, err)
 	}
+
+	h.App.Logger.Debug().Str("browserId", browserId).Int("collectionCount", len(animeCollection.MediaListCollection.Lists)).Msg("Retrieved raw anime collection for browser")
 
 	return h.RespondWithData(c, animeCollection)
 }
@@ -325,7 +351,7 @@ func (h *Handler) HandleAnilistListAnime(c echo.Context) error {
 		p.Format,
 		&isAdult,
 		h.App.Logger,
-		h.App.GetAccountToken(),
+		h.App.GetAccountTokenFor(h.GetBrowserIdFromContext(c)),
 	)
 	if err != nil {
 		return h.RespondWithError(c, err)
@@ -382,7 +408,7 @@ func (h *Handler) HandleAnilistListRecentAiringAnime(c echo.Context) error {
 		p.NotYetAired,
 		p.Sort,
 		h.App.Logger,
-		h.App.GetAccountToken(),
+		h.App.GetAccountTokenFor(h.GetBrowserIdFromContext(c)),
 	)
 	if err != nil {
 		return h.RespondWithError(c, err)
@@ -421,7 +447,7 @@ func (h *Handler) HandleAnilistListMissedSequels(c echo.Context) error {
 	ret, err := anilist.ListMissedSequels(
 		animeCollection,
 		h.App.Logger,
-		h.App.GetAccountToken(),
+		h.App.GetAccountTokenFor(h.GetBrowserIdFromContext(c)),
 	)
 	if err != nil {
 		return h.RespondWithError(c, err)

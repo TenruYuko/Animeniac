@@ -639,3 +639,119 @@ func (ap *AnilistPlatform) GetStudioDetails(studioID int) (*anilist.StudioDetail
 func (ap *AnilistPlatform) GetAnilistClient() anilist.AnilistClient {
 	return ap.anilistClient
 }
+
+// GetAnimeCollectionWithClient retrieves anime collection using a specific AniList client
+// This allows different browsers to have their own independent AniList sessions
+func (ap *AnilistPlatform) GetAnimeCollectionWithClient(client anilist.AnilistClient, bypassCache bool) (*anilist.AnimeCollection, error) {
+	ap.logger.Trace().Msg("anilist platform: Getting anime collection with specific client")
+
+	// Use the default client if none provided
+	if client == nil {
+		return ap.GetAnimeCollection(bypassCache)
+	}
+
+	// If in offline mode, return the cached collection if available
+	if ap.isOffline && ap.animeCollection.IsPresent() {
+		return ap.animeCollection.MustGet(), nil
+	}
+
+	// If bypassing cache or no cached collection, fetch from AniList
+	if bypassCache || !ap.animeCollection.IsPresent() {
+		// Fetch collection using the provided client
+		collection, err := client.AnimeCollection(context.Background(), nil)
+		if err != nil {
+			return nil, err
+		}
+
+		// Filter out custom lists if necessary
+		if collection.MediaListCollection != nil && collection.MediaListCollection.Lists != nil {
+			// Create a new filtered list without using lo.Filter to avoid type issues
+			var filteredLists []*anilist.AnimeCollection_MediaListCollection_Lists
+			for _, list := range collection.MediaListCollection.Lists {
+				if list.IsCustomList == nil || !*list.IsCustomList {
+					filteredLists = append(filteredLists, list)
+				}
+			}
+			collection.MediaListCollection.Lists = filteredLists
+		}
+
+		// Return the collection without caching it globally (browser-specific)
+		return collection, nil
+	}
+
+	// Return the cached collection
+	return ap.animeCollection.MustGet(), nil
+}
+
+// GetMangaCollectionWithClient retrieves manga collection using a specific AniList client
+// This allows different browsers to have their own independent AniList sessions
+func (ap *AnilistPlatform) GetMangaCollectionWithClient(client anilist.AnilistClient, bypassCache bool) (*anilist.MangaCollection, error) {
+	ap.logger.Trace().Msg("anilist platform: Getting manga collection with specific client")
+
+	// Use the default client if none provided
+	if client == nil {
+		return ap.GetMangaCollection(bypassCache)
+	}
+
+	// If in offline mode, return the cached collection if available
+	if ap.isOffline && ap.mangaCollection.IsPresent() {
+		return ap.mangaCollection.MustGet(), nil
+	}
+
+	// If bypassing cache or no cached collection, fetch from AniList
+	if bypassCache || !ap.mangaCollection.IsPresent() {
+		// Fetch collection using the provided client
+		collection, err := client.MangaCollection(context.Background(), nil)
+		if err != nil {
+			return nil, err
+		}
+
+		// Filter out custom lists if necessary
+		if collection.MediaListCollection != nil && collection.MediaListCollection.Lists != nil {
+			// Create a new filtered list without using lo.Filter to avoid type issues
+			var filteredLists []*anilist.MangaCollection_MediaListCollection_Lists
+			for _, list := range collection.MediaListCollection.Lists {
+				if list.IsCustomList == nil || !*list.IsCustomList {
+					filteredLists = append(filteredLists, list)
+				}
+			}
+			collection.MediaListCollection.Lists = filteredLists
+		}
+
+		// Return the collection without caching it globally (browser-specific)
+		return collection, nil
+	}
+
+	// Return the cached collection
+	return ap.mangaCollection.MustGet(), nil
+}
+
+// GetRawAnimeCollectionWithClient retrieves raw anime collection (includes custom lists) using a specific AniList client
+func (ap *AnilistPlatform) GetRawAnimeCollectionWithClient(client anilist.AnilistClient, bypassCache bool) (*anilist.AnimeCollection, error) {
+	ap.logger.Trace().Msg("anilist platform: Getting raw anime collection with specific client")
+
+	// Use the default client if none provided
+	if client == nil {
+		return ap.GetRawAnimeCollection(bypassCache)
+	}
+
+	// If in offline mode, return the cached collection if available
+	if ap.isOffline && ap.rawAnimeCollection.IsPresent() {
+		return ap.rawAnimeCollection.MustGet(), nil
+	}
+
+	// If bypassing cache or no cached collection, fetch from AniList
+	if bypassCache || !ap.rawAnimeCollection.IsPresent() {
+		// Fetch collection using the provided client
+		collection, err := client.AnimeCollection(context.Background(), nil)
+		if err != nil {
+			return nil, err
+		}
+
+		// Return the collection without caching it globally (browser-specific)
+		return collection, nil
+	}
+
+	// Return the cached collection
+	return ap.rawAnimeCollection.MustGet(), nil
+}

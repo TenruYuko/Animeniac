@@ -175,8 +175,8 @@ func NewApp(configOpts *ConfigOptions, selfupdater *updater.SelfUpdater) *App {
 		AnimeLibraryPaths: &animeLibraryPaths,
 	})
 
-	// Get Anilist token from database if available
-	anilistToken := database.GetAnilistToken()
+	// Get Anilist token from database if available (use empty browser ID for default session)
+	anilistToken := database.GetAnilistToken("")
 
 	// Initialize Anilist API client
 	anilistCW := anilist.NewAnilistClient(anilistToken)
@@ -389,4 +389,17 @@ func (a *App) Cleanup() {
 	for _, f := range a.Cleanups {
 		f()
 	}
+}
+
+// GetAccountTokenFor returns the account token for the specified browser ID.
+// If browserId is empty, it returns the token for the default/first account.
+// This is a helper method for the handlers to get a token with browser ID context.
+func (a *App) GetAccountTokenFor(browserId string) string {
+	if a.Database == nil {
+		return ""
+	}
+
+	// Get token from the database using the provided browserId
+	token := a.Database.GetAnilistToken(browserId)
+	return token
 }

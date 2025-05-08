@@ -41,6 +41,7 @@ type Status struct {
 	IsDesktopSidecar      bool                          `json:"isDesktopSidecar"` // The server is running as a desktop sidecar
 	FeatureFlags          core.FeatureFlags             `json:"featureFlags"`
 	ServerReady           bool                          `json:"serverReady"`
+	BrowserId             string                        `json:"browserId"`       // The browser ID associated with this session
 }
 
 var clientInfoCache = result.NewResultMap[string, util.ClientInfo]()
@@ -54,7 +55,33 @@ func (h *Handler) NewStatus(c echo.Context) *Status {
 	var theme *models.Theme
 	//var mal *models.Mal
 
-	if dbAcc, _ = h.App.Database.GetAccount(); dbAcc != nil {
+	// Get browser ID from context (set by middleware) or cookie
+	browserId := ""
+	if ctxBrowserId := c.Get("BrowserId"); ctxBrowserId != nil {
+		if id, ok := ctxBrowserId.(string); ok && id != "" {
+			browserId = id
+		}
+	}
+
+	// If not in context, try to get from cookie
+	if browserId == "" {
+		cookie, err := c.Cookie("Seanime-Browser-Id")
+		if err == nil && cookie.Value != "" {
+			browserId = cookie.Value
+		}
+	}
+
+	// Get account specific to this browser
+	if browserId != "" {
+		h.App.Logger.Debug().Str("browserId", browserId).Msg("Getting account for browser")
+		dbAcc, _ = h.App.Database.GetAccount(browserId)
+	} else {
+		h.App.Logger.Debug().Msg("No browser ID found, using default account")
+		dbAcc, _ = h.App.Database.GetAccount("")
+	}
+
+	// Create user from account if available
+	if dbAcc != nil {
 		user, _ = anime.NewUser(dbAcc)
 		if user != nil {
 			user.Token = "HIDDEN"
@@ -73,7 +100,16 @@ func (h *Handler) NewStatus(c echo.Context) *Status {
 		clientInfoCache.Set(c.Request().UserAgent(), clientInfo)
 	}
 
+	// We already have theme and browserId variables from earlier, just update theme
 	theme, _ = h.App.Database.GetTheme()
+
+	// If still not found, try cookie again
+	if browserId == "" {
+		cookie, err := c.Cookie("Seanime-Browser-Id")
+		if err == nil && cookie.Value != "" {
+			browserId = cookie.Value
+		}
+	}
 
 	return &Status{
 		OS:                    runtime.GOOS,
@@ -95,6 +131,7 @@ func (h *Handler) NewStatus(c echo.Context) *Status {
 		IsDesktopSidecar:      h.App.IsDesktopSidecar,
 		FeatureFlags:          h.App.FeatureFlags,
 		ServerReady:           h.App.ServerReady,
+		BrowserId:             browserId,
 	}
 }
 

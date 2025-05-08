@@ -20,9 +20,10 @@ type Token struct {
 
 type Account struct {
 	BaseModel
-	Username string `gorm:"column:username" json:"username"`
-	Token    string `gorm:"column:token" json:"token"`
-	Viewer   []byte `gorm:"column:viewer" json:"viewer"`
+	Username  string `gorm:"column:username" json:"username"`
+	Token     string `gorm:"column:token" json:"token"`
+	Viewer    []byte `gorm:"column:viewer" json:"viewer"`
+	BrowserId string `gorm:"column:browser_id;index" json:"browser_id"` // Added to support browser-specific sessions
 }
 
 // +---------------------+

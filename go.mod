@@ -1,6 +1,6 @@
 module seanime
 
-go 1.24.1
+go 1.23.8
 
 require (
 	fyne.io/systray v1.11.0

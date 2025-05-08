@@ -5,6 +5,7 @@ import { useAtomValue } from "jotai/react"
 import { useRouter } from "next/navigation"
 import React from "react"
 import { toast } from "sonner"
+import { useCookies } from "react-cookie"
 
 type CallbackPageProps = {}
 
@@ -17,6 +18,7 @@ export function CallbackPage(props: CallbackPageProps) {
     const {} = props
 
     const websocketConnected = useAtomValue(websocketConnectedAtom)
+    const [cookies] = useCookies(["Seanime-Client-Id"])
 
     const { mutate: login } = useLogin()
 
@@ -29,14 +31,19 @@ export function CallbackPage(props: CallbackPageProps) {
              */
             const _token = window?.location?.hash?.replace("#access_token=", "")?.replace(/&.*/, "")
             if (!!_token && !called.current) {
-                login({ token: _token })
+                // Get browser ID from cookie - this will match the client ID from the websocket provider
+                const browserId = cookies["Seanime-Client-Id"]
+                login({ 
+                    token: _token,
+                    browserId: browserId || ""
+                })
                 called.current = true
             } else {
                 toast.error("Invalid token")
                 router.push("/")
             }
         }
-    }, [websocketConnected])
+    }, [websocketConnected, cookies])
 
     return (
         <div>

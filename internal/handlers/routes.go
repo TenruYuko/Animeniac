@@ -105,6 +105,9 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 
 	h := &Handler{App: app}
 
+	// Add the BrowserIDMiddleware to extract browser ID from cookies
+	e.Use(BrowserIDMiddleware)
+
 	e.GET("/events", h.webSocketEventHandler)
 
 	v1 := e.Group("/api").Group("/v1") // Commented out for now, will be used later
@@ -254,6 +257,13 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 
 	v1.GET("/theme", h.HandleGetTheme)
 	v1.PATCH("/theme", h.HandleUpdateTheme)
+
+	//
+	// Client Settings (Browser-specific)
+	//
+
+	v1.GET("/client-settings", h.HandleGetClientSettings)
+	v1.PUT("/client-settings", h.HandleUpdateClientSettings)
 
 	//
 	// Playback Manager

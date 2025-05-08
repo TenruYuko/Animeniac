@@ -3,7 +3,7 @@
 logs/
 *.db
 .run/
-testdata/
+data/
 .vscode
 .cursor
 .DS_Store
