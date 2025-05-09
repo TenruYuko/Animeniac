@@ -2,15 +2,14 @@ version: '3.8'
 
 services:
   seanime:
-    image: golang:1.23.8 # You may want to build a custom image for production
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: seanime:latest
     container_name: seanime
     working_dir: /app
-    volumes:
-      - ./:/app
-      - ./data:/app/data
-    command: ["/bin/bash", "-c", "go build -o seanime . && ./seanime --datadir /app/data"]
     ports:
-      - "43212:43212"
+      - "43211:43211"
     environment:
       - TZ=UTC
     restart: unless-stopped
