@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  seanime:
+    image: golang:1.23.8 # You may want to build a custom image for production
+    container_name: seanime
+    working_dir: /app
+    volumes:
+      - ./:/app
+      - ./data:/app/data
+    command: ["/bin/bash", "-c", "go build -o seanime . && ./seanime --datadir /app/data"]
+    ports:
+      - "43212:43212"
+    environment:
+      - TZ=UTC
+    restart: unless-stopped
+
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - VPN_SERVICE_PROVIDER=MULLVAD
+      - OPENVPN_USER=5254230649909803
+      - OPENVPN_PASSWORD=x
+      - SERVER_COUNTRIES=Sweden
+      - TZ=UTC
+    volumes:
+      - ./vpn:/gluetun/custom
+      # Place your .ovpn config file and certs in ./vpn if you want to use custom config
+    ports:
+      - "0911:0911"   # qBittorrent Web UI
+      - "6881:6881"   # BitTorrent protocol
+      - "6881:6881/udp"
+    restart: unless-stopped
+
+  qbittorrent:
+    image: linuxserver/qbittorrent:latest
+    container_name: a_qbittorrent
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+      - WEBUI_PORT=0911
+    volumes:
+      - ./data/qbittorrent:/config
+      - /aeternae/functional/torrents/torrent_files/animechanical/:/downloads
+    restart: unless-stopped

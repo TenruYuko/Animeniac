@@ -40,6 +40,7 @@ func GetInto(client *http.Client, target interface{}, url string, body interface
 		return err
 	}
 	if err := json.NewDecoder(bytes.NewReader(buf)).Decode(target); err != nil {
+		fmt.Printf("[qBittorrent Debug] Failed to decode JSON: %v\nRaw response: %s\n", err, string(buf))
 		if err2 := json.NewDecoder(strings.NewReader(`"` + string(buf) + `"`)).Decode(target); err2 != nil {
 			return err
 		}
