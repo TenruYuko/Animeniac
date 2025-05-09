@@ -1,15 +1,11 @@
 #!/bin/sh
 set -e
 
-# Force DNS to use Gluetun's internal gateway (VPN protected)
-# Remove /etc/resolv.conf if it exists or is a symlink, then write correct DNS
-touch /etc/resolv.conf
-rm -f /etc/resolv.conf
-printf 'nameserver 127.0.0.1\n' > /etc/resolv.conf
+echo 'nameserver 127.0.0.1' > /etc/resolv.conf
 
 # Start qBittorrent-nox Web UI on 912 (username is always 'admin').
-# On first launch, set the password via the Web UI at http://localhost:912, then use that password in Seanime.
-qbittorrent-nox --webui-port=912 --profile=/app/qbittorrent-profile &
+qbittorrent-nox --webui-port=912 --profile=/app/qbittorrent-profile > /tmp/qbittorrent.log 2>&1 &
+QBIT_PID=$!
 
 # Wait for qBittorrent-nox to be ready
 for i in $(seq 1 15); do
@@ -18,6 +14,15 @@ for i in $(seq 1 15); do
   fi
   sleep 1
 done
+
+# Check if qBittorrent-nox is still running
+if ! kill -0 $QBIT_PID 2>/dev/null; then
+  echo "qBittorrent-nox failed to start. Log output:"
+  cat /tmp/qbittorrent.log
+  exit 1
+fi
+
+cat /tmp/qbittorrent.log
 
 # Start Seanime
 exec /app/seanime --datadir /app/data

@@ -13,6 +13,8 @@ services:
       - /aeternae/library/manga/completed/:/media/manga
       - /aeternae/functional/torrents/torrent_files/animechanical/:/downloads
       - ./data/qbittorrent:/app/qbittorrent-profile
+      - ./data/seanime:/app/data
+      - ./resolv.conf:/etc/resolv.conf
       # qBittorrent-nox credentials: admin/qbpassword, Web UI: http://localhost:912
     network_mode: "service:gluetun"
     depends_on:
@@ -35,6 +37,7 @@ services:
       - SERVER_COUNTRIES=Sweden
       - TZ=UTC
       - DOT_PROVIDERS=cloudflare
+      - EXTRA_SUBNETS=10.147.20.0/24
     volumes:
       - ./vpn:/gluetun/custom
       # Place your .ovpn config file and certs in ./vpn if you want to use custom config
