@@ -3,6 +3,8 @@ package core
 import (
 	"context"
 	"seanime/internal/api/anilist"
+	"seanime/internal/database/models"
+	"time"
 )
 
 // NewAnilistClient creates a new AniList client with the given token
@@ -14,9 +16,36 @@ func (a *App) NewAnilistClient(token string) anilist.AnilistClient {
 func (a *App) UpdateUserSession(sessionID, token string) {
 	a.SessionManager.CreateOrUpdateSession(sessionID, token)
 	
-	// For backward compatibility, also update the global client
-	// This ensures existing code continues to work while we transition to session-based clients
+	// Always update the global client to ensure proper functionality
+	// This ensures existing code works correctly with the token
 	a.UpdateAnilistClientToken(token)
+	
+	// Also update the token in the database as a fallback
+	a.saveTokenToDatabase(token)
+}
+
+// saveTokenToDatabase saves the token to the database as a fallback mechanism
+func (a *App) saveTokenToDatabase(token string) {
+	// Get the current account or create a new one
+	account, err := a.Database.GetAccount()
+	if err != nil || account == nil {
+		// Create a new account with ID 1 for backward compatibility
+		account = &models.Account{
+			BaseModel: models.BaseModel{
+				ID:        1,
+				UpdatedAt: time.Now(),
+			},
+		}
+	}
+	
+	// Update the token
+	account.Token = token
+	
+	// Save to database
+	_, err = a.Database.UpsertAccount(account)
+	if err != nil {
+		a.Logger.Error().Err(err).Msg("Failed to save token to database")
+	}
 }
 
 // RemoveUserSession removes a user session
