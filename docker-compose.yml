@@ -15,14 +15,12 @@ services:
       - ./data/qbittorrent:/app/qbittorrent-profile
       - ./data/seanime:/app/data
       - ./resolv.conf:/etc/resolv.conf
-      # qBittorrent-nox credentials: admin/qbpassword, Web UI: http://localhost:912
     network_mode: "service:gluetun"
     depends_on:
       - gluetun
     environment:
       - TZ=UTC
     restart: unless-stopped
-    # Note: Ports cannot be published directly in this mode. To access the web UI, publish ports via Gluetun or use a VPN client on your host.
 
   gluetun:
     image: qmcgaw/gluetun:latest
