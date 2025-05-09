@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Set the data directory path
+DATA_DIR="/aeternae/functional/dockers/animechanical/data"
+
 # Create data directory if it doesn't exist
 mkdir -p "$DATA_DIR"
 
@@ -14,5 +17,5 @@ echo "   rm \"$DATA_DIR/seanime.db\""
 echo "   and then restart the application"
 echo "======================================================="
 
-# Run with verbose logging
+# Run with verbose logging and listen on all interfaces
 ./seanime --datadir "/aeternae/functional/dockers/animechanical/data"

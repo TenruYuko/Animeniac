@@ -124,7 +124,7 @@ func GetHardwareAccelSettings(opts HwAccelOptions) HwAccelSettings {
 				"-no-scenecut", "1",
 			},
 			// see note on ScaleFilter of the vaapi HwAccel, this is the same filter but adapted to cuda
-			ScaleFilter:   "format=nv12|cuda,hwupload,scale_cuda=%d:%d:format=nv12",
+			ScaleFilter:   "format=nv12,hwupload,scale_cuda=%d:%d:format=nv12",
 			WithForcedIdr: true,
 		}
 	case "videotoolbox":

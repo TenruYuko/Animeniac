@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Custom Player</title>
+    <style>
+        /* Custom player controls - these will be injected into the iframe */
+        .vds-play-button {
+            position: absolute !important;
+            bottom: 20px !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            z-index: 100 !important;
+            height: 60px !important;
+            width: 60px !important;
+            background-color: rgba(255, 255, 255, 0.2) !important;
+            border-radius: 50% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        .vds-play-button:hover {
+            background-color: rgba(255, 255, 255, 0.3) !important;
+        }
+        .vds-play-button svg {
+            height: 30px !important;
+            width: 30px !important;
+        }
+
+        /* Custom player controls container */
+        .custom-player-controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 80px;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            z-index: 10000;
+        }
+
+        /* Control groups */
+        .control-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Control button styling */
+        .control-button {
+            background-color: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .control-button:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        .control-button.active {
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Center play button */
+        .center-play-button {
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        .center-play-button:hover {
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+    </style>
+</head>
+<body style="margin:0; padding:0;">
+    <!-- Seanime player will be loaded in this iframe -->
+    <iframe id="player-iframe" style="width:100vw;height:100vh;border:none;" allowfullscreen="true"></iframe>
+
+    <!-- Custom controls overlay -->
+    <div class="custom-player-controls">
+        <div class="control-group left-controls">
+            <button class="control-button" onclick="seekRelative(-20)">⟲20</button>
+            <button class="control-button" onclick="seekRelative(-10)">⟲10</button>
+            <button class="control-button" onclick="toggleRewind(2)" data-speed="2">⟲2x</button>
+            <button class="control-button" onclick="toggleRewind(5)" data-speed="5">⟲5x</button>
+            <button class="control-button" onclick="toggleRewind(10)" data-speed="10">⟲10x</button>
+            <button class="control-button" onclick="toggleRewind(20)" data-speed="20">⟲20x</button>
+        </div>
+        <div class="control-group center-controls">
+            <button class="control-button center-play-button" onclick="togglePlayPause()">▶</button>
+        </div>
+        <div class="control-group right-controls">
+            <button class="control-button" onclick="toggleFastForward(2)" data-speed="2">2x⟳</button>
+            <button class="control-button" onclick="toggleFastForward(5)" data-speed="5">5x⟳</button>
+            <button class="control-button" onclick="toggleFastForward(10)" data-speed="10">10x⟳</button>
+            <button class="control-button" onclick="toggleFastForward(20)" data-speed="20">20x⟳</button>
+            <button class="control-button" onclick="seekRelative(10)">10⟳</button>
+            <button class="control-button" onclick="seekRelative(20)">20⟳</button>
+        </div>
+    </div>
+
+    <script>
+        let isFastForwarding = false;
+        let isRewinding = false;
+        let ffSpeed = 2;
+        let rwSpeed = 2;
+        let ffInterval = null;
+        let rwInterval = null;
+
+        // Get query parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const originalUrl = urlParams.get('url');
+        
+        // Set the iframe source to the original player URL
+        if (originalUrl) {
+            document.getElementById('player-iframe').src = originalUrl;
+        } else {
+            document.body.innerHTML = '<h1>Error: No player URL provided</h1>';
+        }
+
+        // Helper function to get the video element from iframe
+        function getVideoElement() {
+            try {
+                const iframe = document.getElementById('player-iframe');
+                return iframe.contentDocument.querySelector('video');
+            } catch (e) {
+                console.error('Error accessing video element:', e);
+                return null;
+            }
+        }
+
+        // Function to seek relative to current position
+        function seekRelative(seconds) {
+            const video = getVideoElement();
+            if (!video) return;
+            
+            const currentTime = video.currentTime;
+            const duration = video.duration || 0;
+            video.currentTime = Math.max(0, Math.min(currentTime + seconds, duration));
+        }
+
+        // Function to toggle play/pause
+        function togglePlayPause() {
+            const video = getVideoElement();
+            if (!video) return;
+            
+            if (video.paused) {
+                video.play();
+                document.querySelector('.center-play-button').innerHTML = '❚❚';
+            } else {
+                video.pause();
+                document.querySelector('.center-play-button').innerHTML = '▶';
+            }
+        }
+
+        // Function to toggle fast-forward
+        function toggleFastForward(speed) {
+            const video = getVideoElement();
+            if (!video) return;
+            
+            // Reset all buttons
+            document.querySelectorAll('.right-controls .control-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            if (isFastForwarding && speed === ffSpeed) {
+                // Turn off fast-forward
+                clearInterval(ffInterval);
+                ffInterval = null;
+                isFastForwarding = false;
+                video.playbackRate = 1;
+            } else {
+                // Turn off rewind if it's on
+                if (isRewinding) {
+                    clearInterval(rwInterval);
+                    rwInterval = null;
+                    isRewinding = false;
+                }
+                
+                // Update speed
+                ffSpeed = speed;
+                
+                // Clear existing interval
+                if (ffInterval) {
+                    clearInterval(ffInterval);
+                }
+                
+                // Start new interval
+                ffInterval = setInterval(() => {
+                    seekRelative(ffSpeed);
+                }, 1000);
+                
+                isFastForwarding = true;
+                
+                // Highlight active button
+                document.querySelector(`.right-controls [data-speed="${speed}"]`).classList.add('active');
+            }
+        }
+
+        // Function to toggle rewind
+        function toggleRewind(speed) {
+            const video = getVideoElement();
+            if (!video) return;
+            
+            // Reset all buttons
+            document.querySelectorAll('.left-controls .control-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            if (isRewinding && speed === rwSpeed) {
+                // Turn off rewind
+                clearInterval(rwInterval);
+                rwInterval = null;
+                isRewinding = false;
+                video.playbackRate = 1;
+            } else {
+                // Turn off fast-forward if it's on
+                if (isFastForwarding) {
+                    clearInterval(ffInterval);
+                    ffInterval = null;
+                    isFastForwarding = false;
+                }
+                
+                // Update speed
+                rwSpeed = speed;
+                
+                // Clear existing interval
+                if (rwInterval) {
+                    clearInterval(rwInterval);
+                }
+                
+                // Start new interval
+                rwInterval = setInterval(() => {
+                    seekRelative(-rwSpeed);
+                }, 1000);
+                
+                isRewinding = true;
+                
+                // Highlight active button
+                document.querySelector(`.left-controls [data-speed="${speed}"]`).classList.add('active');
+            }
+        }
+
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', (event) => {
+            const key = event.key.toLowerCase();
+            
+            // Basic shortcuts
+            if (key === 'arrowright') seekRelative(10);
+            if (key === 'arrowleft') seekRelative(-10);
+            
+            // Space for play/pause
+            if (key === ' ') togglePlayPause();
+            
+            // Shift + arrows for 30 seconds
+            if (event.shiftKey && key === 'arrowright') seekRelative(30);
+            if (event.shiftKey && key === 'arrowleft') seekRelative(-30);
+            
+            // Alt + numbers for speeds
+            if (event.altKey) {
+                const num = parseInt(key, 10);
+                if (num === 1) toggleRewind(2);
+                if (num === 2) toggleRewind(5);
+                if (num === 3) toggleRewind(10);
+                if (num === 4) toggleRewind(20);
+                if (num === 5) toggleFastForward(2);
+                if (num === 6) toggleFastForward(5);
+                if (num === 7) toggleFastForward(10);
+                if (num === 8) toggleFastForward(20);
+            }
+        });
+
+        // Set initial play button state
+        setTimeout(() => {
+            const video = getVideoElement();
+            if (video) {
+                document.querySelector('.center-play-button').innerHTML = video.paused ? '▶' : '❚❚';
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

@@ -413,17 +413,22 @@ export function SeaMediaPlayer(props: SeaMediaPlayerProps) {
         playerRef.current.currentTime = newTime
     }, [])
 
-    // Add state for togglable fast-forward and rewind
+    // Add state for togglable fast-forward and rewind with multiple speeds
     const [isFastForwarding, setIsFastForwarding] = React.useState(false)
     const [isRewinding, setIsRewinding] = React.useState(false)
+    const [ffSpeed, setFFSpeed] = React.useState(2) // Default 2x speed
+    const [rwSpeed, setRWSpeed] = React.useState(2) // Default 2x speed
     
     // Reference to store interval IDs
     const ffIntervalRef = React.useRef<number | null>(null)
     const rwIntervalRef = React.useRef<number | null>(null)
+    
+    // Available speed multipliers
+    const speedOptions = [2, 5, 10, 20]
 
-    // Toggle fast-forward function
-    const toggleFastForward = React.useCallback(() => {
-        if (isFastForwarding) {
+    // Toggle fast-forward function with speed selection
+    const toggleFastForward = React.useCallback((speed?: number) => {
+        if (isFastForwarding && (speed === undefined || speed === ffSpeed)) {
             // Turn off fast-forward
             if (ffIntervalRef.current !== null) {
                 window.clearInterval(ffIntervalRef.current)
@@ -431,23 +436,35 @@ export function SeaMediaPlayer(props: SeaMediaPlayerProps) {
             }
             setIsFastForwarding(false)
         } else {
+            // Update speed if provided
+            if (speed !== undefined) {
+                setFFSpeed(speed)
+            }
+            
             // Turn on fast-forward and ensure rewind is off
             if (rwIntervalRef.current !== null) {
                 window.clearInterval(rwIntervalRef.current)
                 rwIntervalRef.current = null
                 setIsRewinding(false)
             }
-            // Create interval that seeks 5 seconds per 1 second real time
+            
+            // Clear any existing fast-forward interval
+            if (ffIntervalRef.current !== null) {
+                window.clearInterval(ffIntervalRef.current)
+            }
+            
+            // Create interval that seeks based on selected speed per second real time
+            const currentSpeed = speed !== undefined ? speed : ffSpeed
             ffIntervalRef.current = window.setInterval(() => {
-                seekRelative(5)
+                seekRelative(currentSpeed)
             }, 1000)
             setIsFastForwarding(true)
         }
-    }, [isFastForwarding, isRewinding])
+    }, [isFastForwarding, isRewinding, ffSpeed])
 
-    // Toggle rewind function
-    const toggleRewind = React.useCallback(() => {
-        if (isRewinding) {
+    // Toggle rewind function with speed selection
+    const toggleRewind = React.useCallback((speed?: number) => {
+        if (isRewinding && (speed === undefined || speed === rwSpeed)) {
             // Turn off rewind
             if (rwIntervalRef.current !== null) {
                 window.clearInterval(rwIntervalRef.current)
@@ -455,19 +472,31 @@ export function SeaMediaPlayer(props: SeaMediaPlayerProps) {
             }
             setIsRewinding(false)
         } else {
+            // Update speed if provided
+            if (speed !== undefined) {
+                setRWSpeed(speed)
+            }
+            
             // Turn on rewind and ensure fast-forward is off
             if (ffIntervalRef.current !== null) {
                 window.clearInterval(ffIntervalRef.current)
                 ffIntervalRef.current = null
                 setIsFastForwarding(false)
             }
-            // Create interval that rewinds 5 seconds per 1 second real time
+            
+            // Clear any existing rewind interval
+            if (rwIntervalRef.current !== null) {
+                window.clearInterval(rwIntervalRef.current)
+            }
+            
+            // Create interval that rewinds based on selected speed per second real time
+            const currentSpeed = speed !== undefined ? speed : rwSpeed
             rwIntervalRef.current = window.setInterval(() => {
-                seekRelative(-5)
+                seekRelative(-currentSpeed)
             }, 1000)
             setIsRewinding(true)
         }
-    }, [isFastForwarding, isRewinding])
+    }, [isFastForwarding, isRewinding, rwSpeed])
 
     // Clean up intervals when component unmounts
     React.useEffect(() => {
@@ -494,12 +523,20 @@ export function SeaMediaPlayer(props: SeaMediaPlayerProps) {
         })
 
         // Add new keyboard shortcuts for seeking
-        mousetrap.bind("right", () => seekRelative(5))  // Quick 5 seconds forward
-        mousetrap.bind("left", () => seekRelative(-5))  // Quick 5 seconds backward
+        mousetrap.bind("right", () => seekRelative(10))  // Quick 10 seconds forward
+        mousetrap.bind("left", () => seekRelative(-10))  // Quick 10 seconds backward
         mousetrap.bind("shift+right", () => seekRelative(30))  // Quick 30 seconds forward
         mousetrap.bind("shift+left", () => seekRelative(-30))  // Quick 30 seconds backward
-        mousetrap.bind("ctrl+right", toggleFastForward)  // Toggle continuous fast-forward
-        mousetrap.bind("ctrl+left", toggleRewind)  // Toggle continuous rewind
+        mousetrap.bind("ctrl+right", () => toggleFastForward())  // Toggle continuous fast-forward
+        mousetrap.bind("ctrl+left", () => toggleRewind())  // Toggle continuous rewind
+        mousetrap.bind("alt+1", () => toggleRewind(2))  // Toggle 2x rewind
+        mousetrap.bind("alt+2", () => toggleRewind(5))  // Toggle 5x rewind
+        mousetrap.bind("alt+3", () => toggleRewind(10))  // Toggle 10x rewind
+        mousetrap.bind("alt+4", () => toggleRewind(20))  // Toggle 20x rewind
+        mousetrap.bind("alt+5", () => toggleFastForward(2))  // Toggle 2x fast-forward
+        mousetrap.bind("alt+6", () => toggleFastForward(5))  // Toggle 5x fast-forward
+        mousetrap.bind("alt+7", () => toggleFastForward(10))  // Toggle 10x fast-forward
+        mousetrap.bind("alt+8", () => toggleFastForward(20))  // Toggle 20x fast-forward
 
         return () => {
             mousetrap.unbind("f")
@@ -586,99 +623,208 @@ export function SeaMediaPlayer(props: SeaMediaPlayerProps) {
 
     const { onMediaEnterFullscreenRequest } = useFullscreenHandler(playerRef)
 
-    // Add custom control buttons in Jellyfin style
-    const CustomControls = React.useMemo(() => {
-        return (
-            <div className="flex items-center justify-center gap-3">
-                <button 
-                    className="h-9 w-9 flex items-center justify-center text-white bg-transparent hover:bg-white/20 rounded-full transition-colors"
-                    aria-label="Rewind 30s"
-                    onClick={() => seekRelative(-30)}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M2.5 14A7.5 7.5 0 0 0 10 21.5"/>
-                        <path d="M2.5 10A7.5 7.5 0 0 1 10 2.5"/>
-                        <path d="M6 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/>
-                        <path d="M6 13V5.5"/>
-                        <path d="M13 15V9"/>
-                        <path d="M2 2v20"/>
-                        <path stroke="none" fill="white" d="M11 8.2l5 3.5v-7z"/>
-                        <text x="16" y="15" fill="white" fontSize="8">30</text>
-                    </svg>
-                </button>
-                <button
-                    className={`h-9 w-9 flex items-center justify-center text-white ${isRewinding ? "bg-white/30" : "bg-transparent hover:bg-white/20"} rounded-full transition-colors`}
-                    aria-label="Toggle Rewind"
-                    onClick={toggleRewind}
-                >
-                    {isRewinding ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="6" y="4" width="4" height="16"/>
-                            <rect x="14" y="4" width="4" height="16"/>
-                        </svg>
-                    ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M11 17l-5-5 5-5"/>
-                            <path d="M18 17l-5-5 5-5"/>
-                        </svg>
-                    )}
-                </button>
-                <button
-                    className="h-9 w-9 flex items-center justify-center text-white bg-transparent hover:bg-white/20 rounded-full transition-colors"
-                    aria-label="Rewind 5s"
-                    onClick={() => seekRelative(-5)}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="m12.5 8-4 4 4 4"/>
-                        <path d="M20 12H8.5"/>
-                    </svg>
-                </button>
-                <button
-                    className="h-9 w-9 flex items-center justify-center text-white bg-transparent hover:bg-white/20 rounded-full transition-colors"
-                    aria-label="Forward 5s"
-                    onClick={() => seekRelative(5)}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="m11.5 8 4 4-4 4"/>
-                        <path d="M4 12h11.5"/>
-                    </svg>
-                </button>
-                <button
-                    className={`h-9 w-9 flex items-center justify-center text-white ${isFastForwarding ? "bg-white/30" : "bg-transparent hover:bg-white/20"} rounded-full transition-colors`}
-                    aria-label="Toggle Fast Forward"
-                    onClick={toggleFastForward}
-                >
-                    {isFastForwarding ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="6" y="4" width="4" height="16"/>
-                            <rect x="14" y="4" width="4" height="16"/>
-                        </svg>
-                    ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="m13 17 5-5-5-5"/>
-                            <path d="m6 17 5-5-5-5"/>
-                        </svg>
-                    )}
-                </button>
-                <button
-                    className="h-9 w-9 flex items-center justify-center text-white bg-transparent hover:bg-white/20 rounded-full transition-colors"
-                    aria-label="Forward 30s"
-                    onClick={() => seekRelative(30)}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21.5 14A7.5 7.5 0 0 1 14 21.5"/>
-                        <path d="M21.5 10A7.5 7.5 0 0 0 14 2.5"/>
-                        <path d="M18 18a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z"/>
-                        <path d="M18 13V5.5"/>
-                        <path d="M13 15V9"/>
-                        <path d="M22 2v20"/>
-                        <path stroke="none" fill="white" d="M8 8.2l5 3.5v-7z"/>
-                        <text x="6" y="15" fill="white" fontSize="8">30</text>
-                    </svg>
-                </button>
-            </div>
-        )
-    }, [isFastForwarding, isRewinding, toggleFastForward, toggleRewind])
+    // Define our custom icons and buttons to be injected into the player
+    React.useEffect(() => {
+        // Only run this effect once we have a player instance
+        if (!playerRef.current) return;
+        
+        // Get the default controls container
+        const controlsContainer = playerRef.current.el?.querySelector('.vds-controls');
+        if (!controlsContainer) return;
+
+        // Find the center controls group which contains the play button
+        const centerControls = controlsContainer.querySelector('.vds-play-button')?.parentElement;
+        if (!centerControls) return;
+
+        // Create and insert our custom controls with an enhanced layout
+        const createModernPlayerControls = () => {
+            // First, let's create a completely new layout for the controls
+            // Create the main controls container that will hold all our buttons
+            const mainControlsContainer = document.createElement('div');
+            mainControlsContainer.className = 'flex items-center justify-center absolute bottom-0 left-0 right-0 p-4 z-50';
+            mainControlsContainer.id = 'modern-player-controls';
+            
+            // Left controls section (rewind options)
+            const leftControlsSection = document.createElement('div');
+            leftControlsSection.className = 'flex items-center justify-start gap-2 flex-1';
+            
+            // Create rewind buttons with different speeds
+            // Rewind 10s button
+            const rewind10Button = document.createElement('button');
+            rewind10Button.className = 'h-10 w-10 flex items-center justify-center text-white bg-transparent hover:bg-white/20 rounded-full transition-colors';
+            rewind10Button.setAttribute('aria-label', 'Rewind 10s');
+            rewind10Button.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 17l-5-5 5-5"/>
+                    <text x="13" y="13" fill="white" font-size="6.5">10</text>
+                </svg>
+            `;
+            rewind10Button.onclick = () => seekRelative(-10);
+            leftControlsSection.appendChild(rewind10Button);
+            
+            // Rewind 30s button
+            const rewind30Button = document.createElement('button');
+            rewind30Button.className = 'h-10 w-10 flex items-center justify-center text-white bg-transparent hover:bg-white/20 rounded-full transition-colors';
+            rewind30Button.setAttribute('aria-label', 'Rewind 30s');
+            rewind30Button.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 17l-5-5 5-5"/>
+                    <text x="13" y="13" fill="white" font-size="6.5">30</text>
+                </svg>
+            `;
+            rewind30Button.onclick = () => seekRelative(-30);
+            leftControlsSection.appendChild(rewind30Button);
+            
+            // Add speed-based rewind buttons
+            speedOptions.forEach(speed => {
+                const rewindSpeedButton = document.createElement('button');
+                const isActive = isRewinding && rwSpeed === speed;
+                rewindSpeedButton.className = `h-10 w-10 flex items-center justify-center text-white ${isActive ? "bg-white/30" : "bg-transparent hover:bg-white/20"} rounded-full transition-colors`;
+                rewindSpeedButton.setAttribute('aria-label', `Rewind ${speed}x`);
+                rewindSpeedButton.innerHTML = isActive ?
+                    `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="6" y="4" width="4" height="16"/>
+                        <rect x="14" y="4" width="4" height="16"/>
+                    </svg>` :
+                    `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M11 17l-5-5 5-5"/>
+                        <text x="15" y="13" fill="white" font-size="6.5">${speed}x</text>
+                    </svg>`;
+                rewindSpeedButton.onclick = () => toggleRewind(speed);
+                leftControlsSection.appendChild(rewindSpeedButton);
+            });
+            
+            // Center controls section (play/pause)
+            const centerControlsSection = document.createElement('div');
+            centerControlsSection.className = 'flex items-center justify-center flex-1';
+            
+            // Extra large Play/Pause button in the center
+            const playPauseButton = document.createElement('button');
+            playPauseButton.className = 'h-14 w-14 flex items-center justify-center text-white bg-white/20 hover:bg-white/30 rounded-full transition-colors';
+            playPauseButton.setAttribute('aria-label', 'Play/Pause');
+            
+            // Get current play state from the player
+            const isPaused = playerRef.current?.paused;
+            
+            playPauseButton.innerHTML = isPaused ?
+                `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>` :
+                `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="6" y="4" width="4" height="16"></rect>
+                    <rect x="14" y="4" width="4" height="16"></rect>
+                </svg>`;
+            
+            playPauseButton.onclick = () => {
+                if (playerRef.current?.paused) {
+                    playerRef.current?.play();
+                } else {
+                    playerRef.current?.pause();
+                }
+                // Force refresh of controls to update play/pause icon
+                setTimeout(() => {
+                    const oldControls = document.getElementById('modern-player-controls');
+                    if (oldControls) oldControls.remove();
+                    createModernPlayerControls();
+                }, 100);
+            };
+            
+            centerControlsSection.appendChild(playPauseButton);
+            
+            // Right controls section (fast-forward options)
+            const rightControlsSection = document.createElement('div');
+            rightControlsSection.className = 'flex items-center justify-end gap-2 flex-1';
+            
+            // Add speed-based fast-forward buttons
+            speedOptions.forEach(speed => {
+                const fastForwardSpeedButton = document.createElement('button');
+                const isActive = isFastForwarding && ffSpeed === speed;
+                fastForwardSpeedButton.className = `h-10 w-10 flex items-center justify-center text-white ${isActive ? "bg-white/30" : "bg-transparent hover:bg-white/20"} rounded-full transition-colors`;
+                fastForwardSpeedButton.setAttribute('aria-label', `Fast Forward ${speed}x`);
+                fastForwardSpeedButton.innerHTML = isActive ?
+                    `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="6" y="4" width="4" height="16"/>
+                        <rect x="14" y="4" width="4" height="16"/>
+                    </svg>` :
+                    `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m13 17 5-5-5-5"/>
+                        <text x="7" y="13" fill="white" font-size="6.5">${speed}x</text>
+                    </svg>`;
+                fastForwardSpeedButton.onclick = () => toggleFastForward(speed);
+                rightControlsSection.appendChild(fastForwardSpeedButton);
+            });
+            
+            // Forward 30s button
+            const forward30Button = document.createElement('button');
+            forward30Button.className = 'h-10 w-10 flex items-center justify-center text-white bg-transparent hover:bg-white/20 rounded-full transition-colors';
+            forward30Button.setAttribute('aria-label', 'Forward 30s');
+            forward30Button.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m13 17 5-5-5-5"/>
+                    <text x="7" y="13" fill="white" font-size="6.5">30</text>
+                </svg>
+            `;
+            forward30Button.onclick = () => seekRelative(30);
+            rightControlsSection.appendChild(forward30Button);
+            
+            // Forward 10s button
+            const forward10Button = document.createElement('button');
+            forward10Button.className = 'h-10 w-10 flex items-center justify-center text-white bg-transparent hover:bg-white/20 rounded-full transition-colors';
+            forward10Button.setAttribute('aria-label', 'Forward 10s');
+            forward10Button.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m13 17 5-5-5-5"/>
+                    <text x="7" y="13" fill="white" font-size="6.5">10</text>
+                </svg>
+            `;
+            forward10Button.onclick = () => seekRelative(10);
+            rightControlsSection.appendChild(forward10Button);
+            
+            // Add all sections to the main container
+            mainControlsContainer.appendChild(leftControlsSection);
+            mainControlsContainer.appendChild(centerControlsSection);
+            mainControlsContainer.appendChild(rightControlsSection);
+            
+            // Add the controls to the player
+            const playerElement = playerRef.current?.el;
+            if (playerElement) {
+                playerElement.appendChild(mainControlsContainer);
+            }
+            
+            // Find and move the audio button to the left side
+            const controlsContainer = playerRef.current?.el?.querySelector('.vds-controls');
+            const audioButton = controlsContainer?.querySelector('.vds-volume-slider')?.parentElement;
+            const leftControls = controlsContainer?.querySelector('.vds-controls-group:first-child');
+            if (audioButton && leftControls) {
+                // Move the audio button to be the first child of left controls
+                if (leftControls.firstChild) {
+                    leftControls.insertBefore(audioButton, leftControls.firstChild);
+                } else {
+                    leftControls.appendChild(audioButton);
+                }
+            }
+        };
+
+        // Create the modern controls
+        createModernPlayerControls();
+
+        // Update the controls when state changes
+        const updateControlsInterval = setInterval(() => {
+            // Remove old controls to prevent duplicates
+            const oldControls = document.getElementById('modern-player-controls');
+            if (oldControls) oldControls.remove();
+
+            // Create new controls with updated state
+            createModernPlayerControls();
+        }, 1000);
+
+        return () => {
+            clearInterval(updateControlsInterval);
+            // Clean up on unmount
+            const oldControls = document.getElementById('modern-player-controls');
+            if (oldControls) oldControls.remove();
+        };
+    }, [playerRef.current, isRewinding, isFastForwarding])
 
     return (
         <>
@@ -760,8 +906,8 @@ export function SeaMediaPlayer(props: SeaMediaPlayerProps) {
                                     {settingsItems}
                                     <SeaMediaPlayerPlaybackSubmenu />
                                 </>,
-                                // Add custom controls to the center controls group
-                                centerControlsGroupEnd: CustomControls,
+                                // Let's use the default slots instead of custom ones
+                                // This allows our buttons to integrate with the player's native controls
                                 // centerControlsGroupStart: <div>
                                 //     {onGoToPreviousEpisode && (
                                 //         <IconButton
