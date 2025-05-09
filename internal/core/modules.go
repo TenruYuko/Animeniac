@@ -575,8 +575,7 @@ func (a *App) InitOrRefreshDebridSettings() {
 func (a *App) InitOrRefreshAnilistData() {
 	a.Logger.Debug().Msg("app: Fetching Anilist data")
 
-	// Use empty browser ID for default session
-	acc, err := a.Database.GetAccount("")
+	acc, err := a.Database.GetAccount()
 	if err != nil {
 		a.ServerReady = true
 		return

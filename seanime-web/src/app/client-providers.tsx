@@ -10,7 +10,6 @@ import { ThemeProvider } from "next-themes"
 import { usePathname } from "next/navigation"
 import React from "react"
 import { CookiesProvider } from "react-cookie"
-import { ClientSettingsProvider } from "@/context/client-settings.context"
 
 interface ClientProvidersProps {
     children?: React.ReactNode
@@ -34,15 +33,13 @@ export const ClientProviders: React.FC<ClientProvidersProps> = ({ children }) =>
             <CookiesProvider>
                 <JotaiProvider store={store}>
                     <QueryClientProvider client={queryClient}>
-                        <ClientSettingsProvider>
-                            <CustomCSSProvider>
-                                <WebsocketProvider>
-                                    {children}
-                                    <CustomThemeProvider />
-                                    <Toaster />
-                                </WebsocketProvider>
-                            </CustomCSSProvider>
-                        </ClientSettingsProvider>
+                        <CustomCSSProvider>
+                            <WebsocketProvider>
+                                {children}
+                                <CustomThemeProvider />
+                                <Toaster />
+                            </WebsocketProvider>
+                        </CustomCSSProvider>
                         {/*{process.env.NODE_ENV === "development" && <React.Suspense fallback={null}>*/}
                         {/*    <ReactQueryDevtools />*/}
                         {/*</React.Suspense>}*/}

@@ -278,7 +278,7 @@ func (h *Handler) HandleFetchAnimeEntrySuggestions(c echo.Context) error {
 		nil,
 		nil,
 		h.App.Logger,
-		h.App.GetAccountTokenFor(h.GetBrowserIdFromContext(c)),
+		h.App.GetAccountToken(),
 	)
 	if err != nil {
 		return h.RespondWithError(c, err)

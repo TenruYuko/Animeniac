@@ -27,8 +27,4 @@ type Platform interface {
 	GetAnilistClient() anilist.AnilistClient
 	RefreshAnimeCollection() (*anilist.AnimeCollection, error)
 	RefreshMangaCollection() (*anilist.MangaCollection, error)
-	// Browser-specific methods
-	GetAnimeCollectionWithClient(client anilist.AnilistClient, bypassCache bool) (*anilist.AnimeCollection, error)
-	GetMangaCollectionWithClient(client anilist.AnilistClient, bypassCache bool) (*anilist.MangaCollection, error)
-	GetRawAnimeCollectionWithClient(client anilist.AnilistClient, bypassCache bool) (*anilist.AnimeCollection, error)
 }

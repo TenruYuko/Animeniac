@@ -49,6 +49,7 @@ type (
 	App struct {
 		Config                        *Config
 		Database                      *db.Database
+		SessionManager                *SessionManager
 		Logger                        *zerolog.Logger
 		TorrentClientRepository       *torrent_client.Repository
 		TorrentRepository             *torrent.Repository
@@ -158,7 +159,13 @@ func NewApp(configOpts *ConfigOptions, selfupdater *updater.SelfUpdater) *App {
 	// Initialize database connection
 	database, err := db.NewDatabase(cfg.Data.AppDataDir, cfg.Database.Name, logger)
 	if err != nil {
-		logger.Fatal().Err(err).Msgf("app: Failed to initialize database")
+		logger.Fatal().Err(err).Msgf("app: could not establish connection to database.")
+	}
+	
+	// Migrate database to support multi-user session management
+	err = database.MigrateToMultiUserSupport()
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to migrate database to multi-user support")
 	}
 
 	HandleNewDatabaseEntries(database, logger)
@@ -175,8 +182,8 @@ func NewApp(configOpts *ConfigOptions, selfupdater *updater.SelfUpdater) *App {
 		AnimeLibraryPaths: &animeLibraryPaths,
 	})
 
-	// Get Anilist token from database if available (use empty browser ID for default session)
-	anilistToken := database.GetAnilistToken("")
+	// Get Anilist token from database if available
+	anilistToken := database.GetAnilistToken()
 
 	// Initialize Anilist API client
 	anilistCW := anilist.NewAnilistClient(anilistToken)
@@ -288,6 +295,7 @@ func NewApp(configOpts *ConfigOptions, selfupdater *updater.SelfUpdater) *App {
 	app := &App{
 		Config:                        cfg,
 		Database:                      database,
+		SessionManager:                NewSessionManager(),
 		AnilistClient:                 anilistCW,
 		AnilistPlatform:               activePlatform,
 		LocalPlatform:                 localPlatform,
@@ -389,17 +397,4 @@ func (a *App) Cleanup() {
 	for _, f := range a.Cleanups {
 		f()
 	}
-}
-
-// GetAccountTokenFor returns the account token for the specified browser ID.
-// If browserId is empty, it returns the token for the default/first account.
-// This is a helper method for the handlers to get a token with browser ID context.
-func (a *App) GetAccountTokenFor(browserId string) string {
-	if a.Database == nil {
-		return ""
-	}
-
-	// Get token from the database using the provided browserId
-	token := a.Database.GetAnilistToken(browserId)
-	return token
 }

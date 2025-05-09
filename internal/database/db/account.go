@@ -2,29 +2,30 @@ package db
 
 import (
 	"errors"
+	"github.com/google/uuid"
 	"gorm.io/gorm/clause"
 	"seanime/internal/database/models"
+	"sync"
+	"time"
 )
 
-// Map of browser IDs to account cache
-var accountCacheMap = make(map[string]*models.Account)
+// accountCache maps session IDs to account objects
+var accountCache sync.Map
 
-// UpsertAccount creates or updates an account with the given browser ID
+// UpsertAccount creates or updates an account in the database
 func (db *Database) UpsertAccount(acc *models.Account) (*models.Account, error) {
-	// Check if we need to find an existing account by browser ID
-	if acc.BrowserId != "" {
-		// Look for existing account with this browser ID
-		var existingAcc models.Account
-		result := db.gormdb.Where("browser_id = ?", acc.BrowserId).First(&existingAcc)
-		if result.Error == nil {
-			// If exists, update ID to match existing record
-			acc.ID = existingAcc.ID
-		}
+	// Ensure the account has a session ID
+	if acc.SessionID == "" {
+		acc.SessionID = uuid.New().String()
+	}
+	
+	// Update the last login time
+	if !acc.LastLoginAt.IsZero() {
+		acc.LastLoginAt = time.Now()
 	}
 
-	// Create or update the account
 	err := db.gormdb.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "id"}},
+		Columns:   []clause.Column{{Name: "session_id"}},
 		UpdateAll: true,
 	}).Create(acc).Error
 
@@ -33,57 +34,64 @@ func (db *Database) UpsertAccount(acc *models.Account) (*models.Account, error) 
 		return nil, err
 	}
 
-	// Update cache if browser ID is provided
-	if acc.BrowserId != "" {
-		accountCacheMap[acc.BrowserId] = acc
-	}
+	// Update the cache
+	accountCache.Store(acc.SessionID, acc)
 
 	return acc, nil
 }
 
-// GetAccount retrieves an account by browser ID or the last account if no browser ID is provided
-func (db *Database) GetAccount(browserId string) (*models.Account, error) {
-	// If browser ID is provided and exists in cache, return it
-	if browserId != "" {
-		if acc, ok := accountCacheMap[browserId]; ok {
-			return acc, nil
-		}
-
-		// Try to find account with this browser ID in database
-		var acc models.Account
-		result := db.gormdb.Where("browser_id = ?", browserId).First(&acc)
-		if result.Error == nil {
-			// Valid account found with this browser ID
-			if acc.Username != "" && acc.Token != "" && acc.Viewer != nil {
-				accountCacheMap[browserId] = &acc
-				return &acc, nil
-			}
-		}
+// GetAccountBySessionID retrieves an account by its session ID
+func (db *Database) GetAccountBySessionID(sessionID string) (*models.Account, error) {
+	// Check the cache first
+	if cachedAcc, ok := accountCache.Load(sessionID); ok {
+		return cachedAcc.(*models.Account), nil
 	}
 
-	// If no browser ID provided or not found, return last account (for backward compatibility)
+	// If not in cache, query the database
 	var acc models.Account
-	err := db.gormdb.Last(&acc).Error
+	err := db.gormdb.Where("session_id = ?", sessionID).First(&acc).Error
 	if err != nil {
 		return nil, err
 	}
+	
+	if acc.Username == "" || acc.Token == "" || acc.Viewer == nil {
+		return nil, errors.New("account does not exist or is not authenticated")
+	}
+
+	// Update the cache
+	accountCache.Store(sessionID, &acc)
+
+	return &acc, nil
+}
+
+// GetAccount returns the legacy account (for backward compatibility)
+func (db *Database) GetAccount() (*models.Account, error) {
+	// Try to get the first account in the database
+	var acc models.Account
+	err := db.gormdb.First(&acc).Error
+	if err != nil {
+		return nil, err
+	}
+	
 	if acc.Username == "" || acc.Token == "" || acc.Viewer == nil {
 		return nil, errors.New("account does not exist")
 	}
 
-	// For backward compatibility, if this account has no browser ID but is valid,
-	// and we were given a browser ID, assign that browser ID to this account
-	if browserId != "" && acc.BrowserId == "" {
-		acc.BrowserId = browserId
-		db.UpsertAccount(&acc)
-	}
-
-	return &acc, err
+	return &acc, nil
 }
 
-// GetAnilistToken retrieves the AniList token from the account or returns an empty string
-func (db *Database) GetAnilistToken(browserId string) string {
-	acc, err := db.GetAccount(browserId)
+// GetAnilistToken retrieves the AniList token from the account with the given session ID or returns an empty string
+func (db *Database) GetAnilistTokenBySessionID(sessionID string) string {
+	acc, err := db.GetAccountBySessionID(sessionID)
+	if err != nil {
+		return ""
+	}
+	return acc.Token
+}
+
+// GetAnilistToken retrieves the AniList token from the account or returns an empty string (legacy method)
+func (db *Database) GetAnilistToken() string {
+	acc, err := db.GetAccount()
 	if err != nil {
 		return ""
 	}

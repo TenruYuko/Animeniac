@@ -3,9 +3,10 @@
 logs/
 *.db
 .run/
-data/
+testdata/
 .vscode
 .cursor
+data/
 .DS_Store
 */.DS_Store
 

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"seanime/internal/core"
+	sessionmiddleware "seanime/internal/middleware"
 	util "seanime/internal/util/proxies"
 	"strings"
 	"time"
@@ -26,6 +27,9 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Cookie", "Authorization"},
 		AllowCredentials: true,
 	}))
+	
+	// Add session middleware for managing user sessions
+	e.Use(sessionmiddleware.SessionMiddleware())
 
 	lechoLogger := lecho.From(*app.Logger)
 
@@ -104,9 +108,6 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 	e.Use(headMethodMiddleware)
 
 	h := &Handler{App: app}
-
-	// Add the BrowserIDMiddleware to extract browser ID from cookies
-	e.Use(BrowserIDMiddleware)
 
 	e.GET("/events", h.webSocketEventHandler)
 
@@ -257,13 +258,6 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 
 	v1.GET("/theme", h.HandleGetTheme)
 	v1.PATCH("/theme", h.HandleUpdateTheme)
-
-	//
-	// Client Settings (Browser-specific)
-	//
-
-	v1.GET("/client-settings", h.HandleGetClientSettings)
-	v1.PUT("/client-settings", h.HandleUpdateClientSettings)
 
 	//
 	// Playback Manager

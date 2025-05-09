@@ -185,8 +185,7 @@ func (d *Database) getAnilistToken() (string, error) {
 	if !ok {
 		return "", errors.New("database not initialized")
 	}
-	// Pass empty browserId to get token from default session
-	return db.GetAnilistToken(""), nil
+	return db.GetAnilistToken(), nil
 }
 
 func (d *Database) getAnilistUsername() (string, error) {
@@ -195,8 +194,7 @@ func (d *Database) getAnilistUsername() (string, error) {
 		return "", errors.New("database not initialized")
 	}
 
-	// Pass empty browserId to get account from default session
-	acc, err := db.GetAccount("")
+	acc, err := db.GetAccount()
 	if err != nil {
 		return "", nil
 	}
