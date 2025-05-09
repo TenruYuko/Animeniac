@@ -9,19 +9,18 @@ RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi \
 FROM golang:1.23.8 AS go-build
 WORKDIR /app
 COPY . .
-# Copy the built web assets into the expected directory
-RUN mkdir -p /app/web && cp -r /app/web/build /app/web/
 RUN go build -buildvcs=false -o seanime .
 
 # --- Stage 3: Production image ---
 FROM debian:bookworm-slim
 WORKDIR /app
-# Install runtime dependencies (adjust as needed)
-RUN apt-get update && apt-get install -y ca-certificates ffmpeg && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y ca-certificates ffmpeg qbittorrent-nox tini netcat-openbsd && rm -rf /var/lib/apt/lists/*
 COPY --from=go-build /app/seanime /app/seanime
 COPY --from=go-build /app/data /app/data
-COPY --from=go-build /app/web /app/web
-COPY --from=go-build /app/seanime.db /app/seanime.db
+COPY --from=web-build /app/web/out /app/web
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 EXPOSE 43211
+EXPOSE 912
 ENV TZ=UTC
-CMD ["/app/seanime", "--datadir", "/app/data"]
+ENTRYPOINT ["/entrypoint.sh"]

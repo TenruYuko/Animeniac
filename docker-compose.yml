@@ -8,15 +8,24 @@ services:
     image: seanime:latest
     container_name: seanime
     working_dir: /app
-    ports:
-      - "43211:43211"
+    volumes:
+      - /aeternae/theater/anime/completed/:/media/anime
+      - /aeternae/library/manga/completed/:/media/manga
+      - /aeternae/functional/torrents/torrent_files/animechanical/:/downloads
+      - ./data/qbittorrent:/app/qbittorrent-profile
+      # qBittorrent-nox credentials: admin/qbpassword, Web UI: http://localhost:912
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
     environment:
       - TZ=UTC
     restart: unless-stopped
+    # Note: Ports cannot be published directly in this mode. To access the web UI, publish ports via Gluetun or use a VPN client on your host.
 
   gluetun:
     image: qmcgaw/gluetun:latest
     container_name: gluetun
+    network_mode: "bridge"
     cap_add:
       - NET_ADMIN
     environment:
@@ -25,27 +34,13 @@ services:
       - OPENVPN_PASSWORD=x
       - SERVER_COUNTRIES=Sweden
       - TZ=UTC
+      - DOT_PROVIDERS=cloudflare
     volumes:
       - ./vpn:/gluetun/custom
       # Place your .ovpn config file and certs in ./vpn if you want to use custom config
     ports:
-      - "0911:0911"   # qBittorrent Web UI
-      - "6881:6881"   # BitTorrent protocol
+      - "43211:43211"   # Seanime Web UI
+      - "912:912"       # qBittorrent Web UI (now inside Seanime container)
+      - "6881:6881"     # BitTorrent protocol
       - "6881:6881/udp"
-    restart: unless-stopped
-
-  qbittorrent:
-    image: linuxserver/qbittorrent:latest
-    container_name: a_qbittorrent
-    network_mode: "service:gluetun"
-    depends_on:
-      - gluetun
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=UTC
-      - WEBUI_PORT=0911
-    volumes:
-      - ./data/qbittorrent:/config
-      - /aeternae/functional/torrents/torrent_files/animechanical/:/downloads
     restart: unless-stopped

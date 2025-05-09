@@ -7,6 +7,7 @@
     "dev:mobile": "env-cmd -f .env.mobile next dev --hostname=0.0.0.0 --port=43210 --turbo",
     "dev:desktop": "env-cmd -f .env.desktop next dev --hostname=0.0.0.0 --port=43210 --turbo",
     "build": "next build",
+    "export": "next export",
     "build:desktop": "env-cmd -f .env.desktop next build",
     "build:development:desktop": "env-cmd -f .env.development.desktop next build",
     "start": "next start",
