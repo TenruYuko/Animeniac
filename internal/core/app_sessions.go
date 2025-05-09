@@ -53,14 +53,27 @@ func (a *App) RemoveUserSession(sessionID string) {
 	a.SessionManager.RemoveSession(sessionID)
 }
 
-// GetAnilistClientForSession returns the AniList client for a specific session
-func (a *App) GetAnilistClientForSession(sessionID string) anilist.AnilistClient {
-	session := a.SessionManager.GetSession(sessionID)
-	if session != nil {
-		return session.AnilistClient
+// GetAnilistClient returns the AniList client for a session
+func (a *App) GetAnilistClient(sessionID string) anilist.AnilistClient {
+	// First try to get client from session
+	client := a.SessionManager.GetAnilistClient(sessionID)
+	if client != nil {
+		return client
 	}
 	
-	// If no session is found, return the default client
+	// Check if we have an account with the session ID
+	account, err := a.Database.GetAccountBySessionID(sessionID)
+	if err == nil && account != nil && account.Token != "" {
+		// Create a new client with the account token
+		client = a.NewAnilistClient(account.Token)
+		// Update the session with this token
+		a.SessionManager.CreateOrUpdateSession(sessionID, account.Token)
+		// Also update the global client for backward compatibility
+		a.UpdateAnilistClientToken(account.Token)
+		return client
+	}
+	
+	// Fall back to global client
 	return a.AnilistClient
 }
 
@@ -99,7 +112,7 @@ func (a *App) InitOrRefreshAnilistDataForSession(sessionID string) {
 
 // GetCurrentViewerForSession gets the current viewer data for a specific session
 func (a *App) GetCurrentViewerForSession(sessionID string) (*anilist.GetViewer, error) {
-	client := a.GetAnilistClientForSession(sessionID)
+	client := a.GetAnilistClient(sessionID)
 	
 	return client.GetViewer(context.Background())
 }

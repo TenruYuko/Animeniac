@@ -83,6 +83,8 @@ type LibrarySettings struct {
 	// v2.6+
 	ScannerMatchingThreshold float64 `gorm:"column:scanner_matching_threshold" json:"scannerMatchingThreshold"`
 	ScannerMatchingAlgorithm string  `gorm:"column:scanner_matching_algorithm" json:"scannerMatchingAlgorithm"`
+	// Flag to track whether getting started screen has been shown
+	CompletedGettingStarted bool     `gorm:"column:completed_getting_started" json:"completedGettingStarted"`
 }
 
 func (o *LibrarySettings) GetLibraryPaths() (ret []string) {

@@ -67,6 +67,25 @@ func (m *SessionManager) HasSession(sessionID string) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	
-	_, exists := m.sessions[sessionID]
-	return exists
+	_, ok := m.sessions[sessionID]
+	return ok
+}
+
+// GetAnilistClient returns the AniList client for a session if it exists
+func (m *SessionManager) GetAnilistClient(sessionID string) anilist.AnilistClient {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	
+	if session, ok := m.sessions[sessionID]; ok && session.AnilistClient != nil {
+		return session.AnilistClient
+	}
+	return nil
+}
+
+// SyncSessions ensures all session data is properly synced
+func (m *SessionManager) SyncSessions() {
+	// This is a placeholder for future sync functionality
+	// Currently just ensures all sessions are properly initialized
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 }

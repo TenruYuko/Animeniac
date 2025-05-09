@@ -88,6 +88,8 @@ export function GettingStartedPage({ status }: { status: Status }) {
                                         includeOnlineStreamingInLibrary: false,
                                         scannerMatchingThreshold: 0,
                                         scannerMatchingAlgorithm: "",
+                                        // Set flag to indicate this setup was completed
+                                        completedGettingStarted: true,
                                     },
                                     manga: {
                                         defaultMangaProvider: "",

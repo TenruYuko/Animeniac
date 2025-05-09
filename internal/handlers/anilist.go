@@ -307,25 +307,42 @@ func (h *Handler) HandleAnilistListAnime(c echo.Context) error {
 		&isAdult,
 	)
 
-	cached, ok := anilistListAnimeCache.Get(cacheKey)
-	if ok {
-		return h.RespondWithData(c, cached)
+	cache, found := anilistListAnimeCache.Get(cacheKey)
+	if found {
+		return h.RespondWithData(c, cache)
 	}
 
+	// Get the token for this session
+	sessionID := h.getSessionID(c)
+	token := ""
+	
+	// Try to get token from account
+	account, err := h.App.Database.GetAccountBySessionID(sessionID)
+	if err == nil && account != nil && account.Token != "" {
+		token = account.Token
+	} else {
+		// Fall back to global token
+		account, _ := h.App.Database.GetAccount()
+		if account != nil {
+			token = account.Token
+		}
+	}
+	
+	// Call the AniList API with the token and logger
 	ret, err := anilist.ListAnimeM(
 		p.Page,
 		p.Search,
 		p.PerPage,
-		p.Sort,
-		p.Status,
+		p.Sort, 
+		p.Status, 
 		p.Genres,
 		p.AverageScoreGreater,
-		p.Season,
+		p.Season, 
 		p.SeasonYear,
 		p.Format,
 		&isAdult,
 		h.App.Logger,
-		h.App.GetAccountToken(),
+		token,
 	)
 	if err != nil {
 		return h.RespondWithError(c, err)

@@ -406,7 +406,83 @@ export function SeaMediaPlayer(props: SeaMediaPlayerProps) {
         return ret
     }, [])
 
+    // Function to seek forward or backward by a specified number of seconds
+    const seekRelative = React.useCallback((seconds: number) => {
+        if (!playerRef.current) return
+        const newTime = Math.max(0, Math.min(playerRef.current.currentTime + seconds, playerRef.current.duration || 0))
+        playerRef.current.currentTime = newTime
+    }, [])
+
+    // Add state for togglable fast-forward and rewind
+    const [isFastForwarding, setIsFastForwarding] = React.useState(false)
+    const [isRewinding, setIsRewinding] = React.useState(false)
+    
+    // Reference to store interval IDs
+    const ffIntervalRef = React.useRef<number | null>(null)
+    const rwIntervalRef = React.useRef<number | null>(null)
+
+    // Toggle fast-forward function
+    const toggleFastForward = React.useCallback(() => {
+        if (isFastForwarding) {
+            // Turn off fast-forward
+            if (ffIntervalRef.current !== null) {
+                window.clearInterval(ffIntervalRef.current)
+                ffIntervalRef.current = null
+            }
+            setIsFastForwarding(false)
+        } else {
+            // Turn on fast-forward and ensure rewind is off
+            if (rwIntervalRef.current !== null) {
+                window.clearInterval(rwIntervalRef.current)
+                rwIntervalRef.current = null
+                setIsRewinding(false)
+            }
+            // Create interval that seeks 5 seconds per 1 second real time
+            ffIntervalRef.current = window.setInterval(() => {
+                seekRelative(5)
+            }, 1000)
+            setIsFastForwarding(true)
+        }
+    }, [isFastForwarding, isRewinding])
+
+    // Toggle rewind function
+    const toggleRewind = React.useCallback(() => {
+        if (isRewinding) {
+            // Turn off rewind
+            if (rwIntervalRef.current !== null) {
+                window.clearInterval(rwIntervalRef.current)
+                rwIntervalRef.current = null
+            }
+            setIsRewinding(false)
+        } else {
+            // Turn on rewind and ensure fast-forward is off
+            if (ffIntervalRef.current !== null) {
+                window.clearInterval(ffIntervalRef.current)
+                ffIntervalRef.current = null
+                setIsFastForwarding(false)
+            }
+            // Create interval that rewinds 5 seconds per 1 second real time
+            rwIntervalRef.current = window.setInterval(() => {
+                seekRelative(-5)
+            }, 1000)
+            setIsRewinding(true)
+        }
+    }, [isFastForwarding, isRewinding])
+
+    // Clean up intervals when component unmounts
     React.useEffect(() => {
+        return () => {
+            if (ffIntervalRef.current !== null) {
+                window.clearInterval(ffIntervalRef.current)
+            }
+            if (rwIntervalRef.current !== null) {
+                window.clearInterval(rwIntervalRef.current)
+            }
+        }
+    }, [])
+
+    React.useEffect(() => {
+        // Existing fullscreen shortcut
         mousetrap.bind("f", () => {
             logger("MEDIA PLAYER").info("Fullscreen key pressed")
             try {
@@ -417,14 +493,28 @@ export function SeaMediaPlayer(props: SeaMediaPlayerProps) {
             }
         })
 
+        // Add new keyboard shortcuts for seeking
+        mousetrap.bind("right", () => seekRelative(5))  // Quick 5 seconds forward
+        mousetrap.bind("left", () => seekRelative(-5))  // Quick 5 seconds backward
+        mousetrap.bind("shift+right", () => seekRelative(30))  // Quick 30 seconds forward
+        mousetrap.bind("shift+left", () => seekRelative(-30))  // Quick 30 seconds backward
+        mousetrap.bind("ctrl+right", toggleFastForward)  // Toggle continuous fast-forward
+        mousetrap.bind("ctrl+left", toggleRewind)  // Toggle continuous rewind
+
         return () => {
             mousetrap.unbind("f")
+            mousetrap.unbind("right")
+            mousetrap.unbind("left")
+            mousetrap.unbind("shift+right")
+            mousetrap.unbind("shift+left")
+            mousetrap.unbind("ctrl+right")
+            mousetrap.unbind("ctrl+left")
 
             if (serverStatus?.settings?.discord?.enableRichPresence && serverStatus?.settings?.discord?.enableAnimeRichPresence) {
                 cancelDiscordActivity()
             }
         }
-    }, [])
+    }, [toggleFastForward, toggleRewind])
 
     const { inject, remove } = useSeaCommandInject()
 
@@ -496,6 +586,100 @@ export function SeaMediaPlayer(props: SeaMediaPlayerProps) {
 
     const { onMediaEnterFullscreenRequest } = useFullscreenHandler(playerRef)
 
+    // Add custom control buttons in Jellyfin style
+    const CustomControls = React.useMemo(() => {
+        return (
+            <div className="flex items-center justify-center gap-3">
+                <button 
+                    className="h-9 w-9 flex items-center justify-center text-white bg-transparent hover:bg-white/20 rounded-full transition-colors"
+                    aria-label="Rewind 30s"
+                    onClick={() => seekRelative(-30)}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M2.5 14A7.5 7.5 0 0 0 10 21.5"/>
+                        <path d="M2.5 10A7.5 7.5 0 0 1 10 2.5"/>
+                        <path d="M6 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/>
+                        <path d="M6 13V5.5"/>
+                        <path d="M13 15V9"/>
+                        <path d="M2 2v20"/>
+                        <path stroke="none" fill="white" d="M11 8.2l5 3.5v-7z"/>
+                        <text x="16" y="15" fill="white" fontSize="8">30</text>
+                    </svg>
+                </button>
+                <button
+                    className={`h-9 w-9 flex items-center justify-center text-white ${isRewinding ? "bg-white/30" : "bg-transparent hover:bg-white/20"} rounded-full transition-colors`}
+                    aria-label="Toggle Rewind"
+                    onClick={toggleRewind}
+                >
+                    {isRewinding ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="6" y="4" width="4" height="16"/>
+                            <rect x="14" y="4" width="4" height="16"/>
+                        </svg>
+                    ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 17l-5-5 5-5"/>
+                            <path d="M18 17l-5-5 5-5"/>
+                        </svg>
+                    )}
+                </button>
+                <button
+                    className="h-9 w-9 flex items-center justify-center text-white bg-transparent hover:bg-white/20 rounded-full transition-colors"
+                    aria-label="Rewind 5s"
+                    onClick={() => seekRelative(-5)}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m12.5 8-4 4 4 4"/>
+                        <path d="M20 12H8.5"/>
+                    </svg>
+                </button>
+                <button
+                    className="h-9 w-9 flex items-center justify-center text-white bg-transparent hover:bg-white/20 rounded-full transition-colors"
+                    aria-label="Forward 5s"
+                    onClick={() => seekRelative(5)}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m11.5 8 4 4-4 4"/>
+                        <path d="M4 12h11.5"/>
+                    </svg>
+                </button>
+                <button
+                    className={`h-9 w-9 flex items-center justify-center text-white ${isFastForwarding ? "bg-white/30" : "bg-transparent hover:bg-white/20"} rounded-full transition-colors`}
+                    aria-label="Toggle Fast Forward"
+                    onClick={toggleFastForward}
+                >
+                    {isFastForwarding ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="6" y="4" width="4" height="16"/>
+                            <rect x="14" y="4" width="4" height="16"/>
+                        </svg>
+                    ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="m13 17 5-5-5-5"/>
+                            <path d="m6 17 5-5-5-5"/>
+                        </svg>
+                    )}
+                </button>
+                <button
+                    className="h-9 w-9 flex items-center justify-center text-white bg-transparent hover:bg-white/20 rounded-full transition-colors"
+                    aria-label="Forward 30s"
+                    onClick={() => seekRelative(30)}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21.5 14A7.5 7.5 0 0 1 14 21.5"/>
+                        <path d="M21.5 10A7.5 7.5 0 0 0 14 2.5"/>
+                        <path d="M18 18a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z"/>
+                        <path d="M18 13V5.5"/>
+                        <path d="M13 15V9"/>
+                        <path d="M22 2v20"/>
+                        <path stroke="none" fill="white" d="M8 8.2l5 3.5v-7z"/>
+                        <text x="6" y="15" fill="white" fontSize="8">30</text>
+                    </svg>
+                </button>
+            </div>
+        )
+    }, [isFastForwarding, isRewinding, toggleFastForward, toggleRewind])
+
     return (
         <>
             <div data-sea-media-player-container className="aspect-video relative w-full self-start mx-auto">
@@ -514,6 +698,7 @@ export function SeaMediaPlayer(props: SeaMediaPlayerProps) {
                         aspectRatio="16/9"
                         controlsDelay={discreteControls ? 500 : undefined}
                         className={cn(discreteControls && "discrete-controls")}
+                        preload="auto"
                         onProviderChange={onProviderChange}
                         onMediaEnterFullscreenRequest={onMediaEnterFullscreenRequest}
                         onFullscreenChange={(isFullscreen: boolean, event: MediaFullscreenChangeEvent) => {
@@ -575,6 +760,8 @@ export function SeaMediaPlayer(props: SeaMediaPlayerProps) {
                                     {settingsItems}
                                     <SeaMediaPlayerPlaybackSubmenu />
                                 </>,
+                                // Add custom controls to the center controls group
+                                centerControlsGroupEnd: CustomControls,
                                 // centerControlsGroupStart: <div>
                                 //     {onGoToPreviousEpisode && (
                                 //         <IconButton

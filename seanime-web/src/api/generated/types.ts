@@ -2968,6 +2968,7 @@ export type Models_LibrarySettings = {
     autoSyncOfflineLocalData: boolean
     scannerMatchingThreshold: number
     scannerMatchingAlgorithm: string
+    completedGettingStarted?: boolean
 }
 
 /**

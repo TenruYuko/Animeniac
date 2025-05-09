@@ -81,8 +81,9 @@ export function ServerDataWrapper(props: ServerDataWrapperProps) {
 
     /**
      * If the server status doesn't have settings, show the getting started page
+     * This ensures it's only shown when basic configuration is missing
      */
-    if (!serverStatus?.settings) {
+    if (!serverStatus?.settings || !serverStatus.settings.library || !serverStatus.settings.library.libraryPath) {
         return <GettingStartedPage status={serverStatus} />
     }
 
